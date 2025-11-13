@@ -3,6 +3,8 @@ using UnityEngine.UI;
 using System;
 using System.Security.Cryptography.X509Certificates;
 using UnityEngine.SceneManagement;
+using System.Text.RegularExpressions;
+using UnityEngine.SocialPlatforms.Impl;
 
 public class UIManager : MonoBehaviour
 {
@@ -13,6 +15,7 @@ public class UIManager : MonoBehaviour
     [SerializeField] private Text messageText;
     [SerializeField] private GameObject blockUI;
 
+    BoardManager boardManager;
     public void UpdateUI(int matches, int turns, int score, float time)
     {
         matchText.text = $"Matches: {matches}";
@@ -34,9 +37,11 @@ public class UIManager : MonoBehaviour
         messageText.text = msg;
     }
 
-    public void ShowWinUI()
+    public void HideCardUI()
     {
-        ShowMessage("🎉 You Win!");
+        matchText.text ="";
+        turnText.text = "";
+        scoreText.text = "";
     }
 
     public void ShowBlockUI()
@@ -54,12 +59,15 @@ public class UIManager : MonoBehaviour
     }
     public void Replay()
     {
-        SceneManager.LoadScene("mainScene");
         Time.timeScale = 1;
+        GameSettings.LoadGame = false;
+        DontDestroyOnLoad(MenuManager.Instance);
+        SceneManager.LoadScene("mainScene");
     }
     public void Quit()
     {
-        Time.timeScale = 1.0f;
+        Destroy(MenuManager.Instance.gameObject);
+        Time.timeScale = 1;
         SceneManager.LoadScene("mainMenu");
     }
 }

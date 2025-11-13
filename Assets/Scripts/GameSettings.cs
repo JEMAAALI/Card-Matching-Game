@@ -7,7 +7,8 @@ public static class GameSettings
     public static int Rows { get; set; } = 4;
     public static int Cols { get; set; } = 4;
     public static bool LoadGame { get; set; } = false;
-
+    public static int SavedRows = 0;
+    public static int SavedCols = 0;
     public static void Reset()
     {
         Rows = 4;

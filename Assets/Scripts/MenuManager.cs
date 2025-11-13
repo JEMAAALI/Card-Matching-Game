@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -26,6 +27,11 @@ public class MenuManager : MonoBehaviour
     private int currentA1Index = 0;
     private int currentA2Index = 0;
 
+    public int rows;
+    public int cols;
+
+    public SaveSystem saveSystem;
+
     private void Awake()
     {
         if (Instance == null) Instance = this;
@@ -34,7 +40,7 @@ public class MenuManager : MonoBehaviour
 
     private void Start()
     {
-        Time.timeScale = 1;
+        Time.timeScale = 1.0f;
         // initialize lists and UI
         validA1Selections.AddRange(A1);
         validA2Selections.AddRange(A2);
@@ -45,7 +51,8 @@ public class MenuManager : MonoBehaviour
         A2DecrementButton.onClick.AddListener(DecrementA2);
 
         // load saved availability of 'Load' button
-        loadButton.interactable = PlayerPrefs.GetInt("rows", 0) != 0;
+        string savePath = Path.Combine(Application.persistentDataPath, "savegame.json");
+        loadButton.interactable = File.Exists(savePath);
 
         UpdateA1Text();
         UpdateA2Text();
@@ -137,15 +144,22 @@ public class MenuManager : MonoBehaviour
 
     public void Play()
     {
-        Time.timeScale = 1.0f;
+        rows = int.Parse(A1Text.text);
+        cols= int.Parse(A2Text.text);
         GameSettings.Rows = int.Parse(A1Text.text);
         GameSettings.Cols = int.Parse(A2Text.text);
         GameSettings.LoadGame = false;
-
+        DontDestroyOnLoad(MenuManager.Instance);
         SceneManager.LoadScene("mainScene");
     }
 
- 
+    public void Load()
+    {
+        GameSettings.LoadGame = true;
+        Time.timeScale = 1.0f;
+        DontDestroyOnLoad(MenuManager.Instance);
+        SceneManager.LoadScene("mainScene");
+    }
 
     public void Quit()
     {

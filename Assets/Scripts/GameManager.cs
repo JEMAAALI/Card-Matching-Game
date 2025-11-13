@@ -25,7 +25,7 @@ public class GameManager : MonoBehaviour
     public int Turns { get; private set; } = 0;
     public int Score { get; private set; } = 0;
     public int Matches { get; private set; } = 0;
-    public float TimeRemaining { get; set; } = 180f;
+    public float TimeRemaining { get; set; } = 180;
 
     private List<CardsController> allCards = new List<CardsController>();
     private bool gameOverSoundPlayed = false;
@@ -56,20 +56,129 @@ public class GameManager : MonoBehaviour
     {
         yield return null; // wait one frame to let scene load
 
-        StartNewGame(config.rows, config.cols);
-
+        if (GameSettings.LoadGame && saveSystem.HasSave())
+        {
+            LoadGame();
+        }
+        else
+        {
+            int rows = MenuManager.Instance.rows;
+            int cols = MenuManager.Instance.cols;
+            StartNewGame(rows, cols);
+        }
+         
     }
 
     public void StartNewGame(int rows, int cols)
     {
-        int rowsx = GameSettings.Rows > 0 ? GameSettings.Rows : config.rows;
-        int colsx = GameSettings.Cols > 0 ? GameSettings.Cols : config.cols;
+        //int rowsx = GameSettings.Rows > 0 ? GameSettings.Rows : config.rows;
+        //int colsx = GameSettings.Cols > 0 ? GameSettings.Cols : config.cols;
+        int rowsx = MenuManager.Instance.rows;
+        int colsx = MenuManager.Instance.cols;
         boardManager.SetupBoard(rowsx, colsx,null);
         allCards = boardManager.GetAllCards();
-        Debug.Log($"🟩 New game started with {rows}x{cols} cards.");
+        Debug.Log($"New game started with {rows}x{cols} cards.");
     }
-     
-     
+
+
+    private void LoadGame()
+    {
+        var data = saveSystem.LoadGame();
+        if (data == null)
+        {
+            Debug.Log("Save not found, starting new game.");
+            StartNewGame(config.rows, config.cols);
+            return;
+        }
+
+        MenuManager.Instance.rows = data.rows;
+        MenuManager.Instance.cols = data.cols;
+
+        // Restore stats
+        Turns = data.turns;
+        Score = data.matches * config.pointsPerMatch;
+        Matches = data.matches;
+        TimeRemaining = data.timeRemaining;
+
+        // Setup board with saved cards
+        boardManager.SetupBoard(data.rows, data.cols, data.cards);
+        allCards = boardManager.GetAllCards();
+
+        flippedCardss.Clear();
+        matchedCards.Clear();
+
+        List<CardsController> unmatchedFlippedCards = new List<CardsController>();
+
+        // Go through all saved cards
+        for (int i = 0; i < data.cards.Count; i++)
+        {
+            var cardData = data.cards[i];
+            var card = allCards[i];
+
+            if (IsCardMatched(cardData, data))
+            {
+                // Matched cards → keep flipped, disable interaction
+                matchedCards.Add(card);
+                card.LoadFlipped();  // visually flipped
+                card.DisableCard();  // cannot click
+                card.ShowSparkle();  // optional
+            }
+            else if (cardData.isFlipped)
+            {
+                // Add unmatched flipped cards to a temporary list
+                unmatchedFlippedCards.Add(card);
+            }
+            else
+            {
+                // Normal unflipped card
+                card.HideCardImmediate();
+                card.EnableCard();
+            }
+        }
+
+        // Show unmatched flipped cards together for 0.5s, then flip back
+        StartCoroutine(FlipBackUnmatchedCards(unmatchedFlippedCards));
+
+        // Update UI
+        uiManager?.UpdateUI(Matches, Turns, Score, TimeRemaining);
+
+        Debug.Log($"Game loaded. Matched cards: {matchedCards.Count}");
+    }
+    private IEnumerator FlipBackUnmatchedCards(List<CardsController> cards)
+    {
+        if (cards.Count == 0) yield break;
+
+        // Show all unmatched flipped cards visually
+        foreach (var card in cards)
+        {
+            card.LoadFlipped();  // show face
+            card.DisableCard();   // temporarily prevent click
+        }
+
+        // Wait for 0.5 seconds so player sees them together
+        yield return new WaitForSeconds(1.5f);
+
+        // Flip them back and make clickable
+        foreach (var card in cards)
+        {
+            card.HideCardImmediate(); // flip back
+            card.EnableCard();        // enable clicking
+        }
+    }
+
+    private bool IsCardMatched(CardData cardData, GameData data)
+    {
+        // Count all cards with same value that were flipped in save
+        int countFlippedSameValue = 0;
+        foreach (var c in data.cards)
+        {
+            if (c.cardValue == cardData.cardValue && c.isFlipped)
+                countFlippedSameValue++;
+        }
+
+        // Matched pair = both flipped
+        return countFlippedSameValue >= 2;
+    }
 
     /// <summary>
     /// Called by EventBus when a card is flipped.
@@ -141,18 +250,23 @@ public class GameManager : MonoBehaviour
         {
             EventBus.RaiseWin();
             stopTimer = true;
-            uiManager?.ShowWinUI();
+            uiManager?.HideCardUI();
             uiManager.ShowMessage("Congratulations! You win");
             boardManager?.ShowWinEffect();
             audioManager.PlayWin();
-            Debug.Log("🏆 All cards matched! You win!");
+            Debug.Log("All cards matched! You win!");
         }
     }
 
-     
+    public void SaveGame()
+    {
+        if (saveSystem != null)
+            saveSystem.SaveGame(this, allCards);
+    }
 
     public void QuitGame()
     {
+        SaveGame();
         Application.Quit();
     }
 
@@ -168,13 +282,13 @@ public class GameManager : MonoBehaviour
         }
         else
         {
-            TimeRemaining = 0;
-            uiManager?.UpdateUI(Matches, Turns, Score, TimeRemaining);
+            TimeRemaining = 0; 
             EventBus.RaiseGameOver();
+            uiManager.HideCardUI();
             if (!gameOverSoundPlayed)
             {
-                uiManager.ShowMessage("Time UP!");
-                uiManager.ShowBlockUI();
+                uiManager.ShowMessage("Game Over!       Time UP!");
+                uiManager.ShowBlockUI(); 
                 audioManager?.PlayLose(); // Play once
                 gameOverSoundPlayed = true;
             }
