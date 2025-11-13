@@ -6,20 +6,19 @@ using UnityEngine.UI;
 public class CardsController : MonoBehaviour
 {
     // Public fields (allow BoardManager to set them)
-    [HideInInspector] public int cardValue;
-    [HideInInspector] public bool isFlipped = false;
+    public int cardValue;
+    public bool isFlipped = false;
 
     // Inspector-assigned references
     [SerializeField] private Image image;
     [SerializeField] private Animation flipAnimation;   // optional: assign your Animation component here
     [SerializeField] private AudioClip flipAudioClip;
 
-    private Sprite cardFace;
-    private Sprite cardBack;
+    public Sprite cardFace;
+    public Sprite cardBack;
     private Button button;
     [SerializeField] private GameObject sparkleEffect; // assign in inspector
-    [SerializeField] private GameObject winEffect; // assign in inspector
-    private AudioSource audioSource;
+     private AudioSource audioSource;
 
 
     private void Awake()
@@ -75,9 +74,7 @@ public class CardsController : MonoBehaviour
             button.interactable = true;
         }
 
-     }
-
- 
+     } 
 
     private IEnumerator FlipCardCoroutine()
     {
@@ -90,7 +87,6 @@ public class CardsController : MonoBehaviour
         isFlipped = true;
         image.sprite = cardFace;
         // Note: do not automatically disable the button here; GameManager/BoardManager or Save logic decides.
-        
         // notify game logic (decoupled via EventBus)
         EventBus.RaiseCardFlipped(this);
     }
@@ -131,11 +127,9 @@ public class CardsController : MonoBehaviour
     {
         // logic your old script used: disable listeners and show overlay child (child[1])
         button.onClick.RemoveListener(OnCardClicked);
-        button.interactable = false;
-
-        if (transform.childCount > 1)
-            transform.GetChild(1).gameObject.SetActive(true);
+        button.interactable = false; 
     }
+ 
 
     public void EnableCard()
     {
@@ -187,8 +181,7 @@ public class CardsController : MonoBehaviour
         // After loading, you may want to keep it flipped and disabled (original behavior)
         button.interactable = false;
         button.onClick.RemoveListener(OnCardClicked);
-
-        
+      
     }
 
     public void ShowSparkle()
@@ -203,5 +196,5 @@ public class CardsController : MonoBehaviour
             sparkleEffect.SetActive(false);
     }
 
-   
+     
 }

@@ -12,7 +12,9 @@ public class GameManager : MonoBehaviour
 
     [Header("Managers")]
     public BoardManager boardManager;
-
+    public SaveSystem saveSystem;
+    public UIManager uiManager;
+    public AudioManager audioManager;
 
     [Header("Settings")]
     public GameConfig config;
@@ -28,7 +30,7 @@ public class GameManager : MonoBehaviour
     private List<CardsController> allCards = new List<CardsController>();
     private bool gameOverSoundPlayed = false;
     private bool stopTimer = false;
-    
+
     private void Awake()
     {
         if (Instance == null) Instance = this;
@@ -55,17 +57,18 @@ public class GameManager : MonoBehaviour
         yield return null; // wait one frame to let scene load
 
         StartNewGame(config.rows, config.cols);
+
     }
 
     public void StartNewGame(int rows, int cols)
     {
         int rowsx = GameSettings.Rows > 0 ? GameSettings.Rows : config.rows;
         int colsx = GameSettings.Cols > 0 ? GameSettings.Cols : config.cols;
-        boardManager.SetupBoard(rowsx, colsx);
+        boardManager.SetupBoard(rowsx, colsx,null);
         allCards = boardManager.GetAllCards();
         Debug.Log($"🟩 New game started with {rows}x{cols} cards.");
     }
-
+     
      
 
     /// <summary>
@@ -101,11 +104,13 @@ public class GameManager : MonoBehaviour
             Matches++;
             Score += config.pointsPerMatch;
 
+            audioManager.PlayMatch();
             card1.ShowSparkle();
             card2.ShowSparkle();
 
             card1.DisableCard();
             card2.DisableCard();
+ 
 
             matchedCards.Add(card1);
             matchedCards.Add(card2);
@@ -116,6 +121,7 @@ public class GameManager : MonoBehaviour
         {
             yield return new WaitForSeconds(0.05f);
 
+            audioManager.PlayNotMatch();
             card1.HideCard();
             card2.HideCard();
 
@@ -123,11 +129,55 @@ public class GameManager : MonoBehaviour
             card2.EnableCard();
         }
 
+        if (uiManager != null)
+            uiManager.UpdateUI(Matches, Turns, Score, TimeRemaining);
 
+        CheckForWin();
+    }
 
-     } 
-
-   
+    private void CheckForWin()
+    {
+        if (matchedCards.Count == allCards.Count)
+        {
+            EventBus.RaiseWin();
+            stopTimer = true;
+            uiManager?.ShowWinUI();
+            uiManager.ShowMessage("Congratulations! You win");
+            boardManager?.ShowWinEffect();
+            audioManager.PlayWin();
+            Debug.Log("🏆 All cards matched! You win!");
+        }
+    }
 
      
+
+    public void QuitGame()
+    {
+        Application.Quit();
+    }
+
+    private void Update()
+    {
+        if (TimeRemaining > 0)
+        {
+            if (!stopTimer)
+            {
+                TimeRemaining -= Time.deltaTime;
+                uiManager?.UpdateUI(Matches, Turns, Score, TimeRemaining);
+            }
+        }
+        else
+        {
+            TimeRemaining = 0;
+            uiManager?.UpdateUI(Matches, Turns, Score, TimeRemaining);
+            EventBus.RaiseGameOver();
+            if (!gameOverSoundPlayed)
+            {
+                uiManager.ShowMessage("Time UP!");
+                uiManager.ShowBlockUI();
+                audioManager?.PlayLose(); // Play once
+                gameOverSoundPlayed = true;
+            }
+        }
+    }
 }
